@@ -2,7 +2,7 @@
     "name": "zerofront/module-zero-layered-navigation",
     "description": "Zero for Magento Open Source: better filters: several values of one filter at once, counts that stay right, a price range by the customer's own numbers.",
     "type": "magento2-module",
-    "version": "1.3.3",
+    "version": "1.3.4",
     "license": [
         "OSL-3.0",
         "AFL-3.0"
