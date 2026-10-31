@@ -9,7 +9,6 @@ declare(strict_types=1);
 namespace Zero\LayeredNavigation\Model;
 
 use Magento\Catalog\Model\Layer;
-use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
 use Magento\Customer\Model\Context as CustomerContext;
 use Magento\Framework\App\Cache\StateInterface as CacheState;
 use Magento\Framework\App\Cache\Type\Block as BlockCache;
@@ -21,9 +20,12 @@ use Zero\LayeredNavigation\Model\Layer\Filter\Attribute;
 
 /**
  * The price slider's ends: cheapest and dearest of the page's products with
- * every other filter applied, from the price index, in the store currency,
- * rounded outwards. Block-cached for an hour (cleaned by the category's
- * product saves): two queries, ~20-40 ms.
+ * every other filter applied, from the price index, in the store currency
+ * (the collection's own statistics apply the rate once), rounded outwards.
+ * Block-cached for an hour (cleaned by the category's product saves): one
+ * search request (category and search pages), one count and one statistics
+ * query. Nothing to slide over is not cached, so such a page pays that on
+ * every render.
  */
 class PriceBounds
 {
@@ -34,7 +36,6 @@ class PriceBounds
 
     public function __construct(
         private readonly FacetCounts $facetCounts,
-        private readonly CollectionFactory $productCollectionFactory,
         private readonly PriceCurrencyInterface $priceCurrency,
         private readonly CacheInterface $cache,
         private readonly CacheState $cacheState,
@@ -60,12 +61,17 @@ class PriceBounds
         }
         ksort($filters);
         $categoryId = (int) $layer->getCurrentCategory()->getId();
+        $query = $this->request->getParam('q', '');
+        $fixed = FacetCounts::fixed($this->request);
+        ksort($fixed);
         $cacheable = $this->cacheState->isEnabled(BlockCache::TYPE_IDENTIFIER);
         $key = 'zero_price_bounds_' . hash('sha256', json_encode([
             (int) $layer->getCurrentStore()->getId(),
             $categoryId,
-            (string) $this->request->getParam('q', ''),
+            is_scalar($query) ? (string) $query : '',
+            (int) $this->request->getParam('cat'),
             $filters,
+            $fixed,
             (string) $this->httpContext->getValue(CustomerContext::CONTEXT_GROUP),
             (string) $this->priceCurrency->getCurrency()->getCode(),
         ]));
@@ -73,12 +79,14 @@ class PriceBounds
             $cached = $this->cache->load($key);
             if (is_string($cached)) {
                 $decoded = json_decode($cached, true);
-
-                return $this->bounds = is_array($decoded) ? [(float) $decoded[0], (float) $decoded[1]] : null;
+                // An old entry holding null (nothing to slide over) is computed again.
+                if (is_array($decoded) && isset($decoded[0], $decoded[1])) {
+                    return $this->bounds = [(float) $decoded[0], (float) $decoded[1]];
+                }
             }
         }
         $this->bounds = $this->compute($layer, $filters);
-        if ($cacheable) {
+        if ($cacheable && $this->bounds !== null) {
             $this->cache->save(
                 (string) json_encode($this->bounds),
                 $key,
@@ -96,13 +104,15 @@ class PriceBounds
      */
     private function compute(Layer $layer, array $filters): ?array
     {
-        $ids = $this->facetCounts->collection($layer, $filters, null)->getAllIds();
-        if (!$ids) {
+        $collection = $this->facetCounts->collection($layer, $filters, null);
+        // getSize() first: it applies the search result and the filters, and the
+        // statistics query clones the select as it stands.
+        if ((int) $collection->getSize() === 0) {
             return null;
         }
-        $prices = $this->productCollectionFactory->create()->addIdFilter($ids)->addPriceData();
-        $min = floor((float) $this->priceCurrency->convert((float) $prices->getMinPrice()));
-        $max = ceil((float) $this->priceCurrency->convert((float) $prices->getMaxPrice()));
+        // Already in the store currency (the collection applies its rate).
+        $min = floor((float) $collection->getMinPrice());
+        $max = ceil((float) $collection->getMaxPrice());
 
         return $max > $min ? [$min, $max] : null;
     }

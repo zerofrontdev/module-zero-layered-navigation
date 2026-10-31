@@ -10,6 +10,7 @@ namespace Zero\LayeredNavigation\Model;
 
 use Magento\Catalog\Model\Layer;
 use Magento\Catalog\Model\Layer\ItemCollectionProviderInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\RequestInterface;
 
 /**
@@ -75,15 +76,23 @@ class FacetCounts
 
     /**
      * Filters a page applies by itself, not shown nor removable (a brand's
-     * page: its brand): the request's zero_fixed, attribute code => value.
+     * page: its brand): the request's zero_fixed, attribute code => value,
+     * set by the page's controller with setParam, never from the address.
      *
      * @return array<string, string>
      */
     public static function fixed(RequestInterface $request): array
     {
-        $fixed = $request->getParam('zero_fixed');
+        $fixed = $request instanceof Http ? $request->getUserParam('zero_fixed') : null;
 
-        return is_array($fixed) ? array_filter(array_map('strval', $fixed), static fn ($v) => $v !== '') : [];
+        if (!is_array($fixed)) {
+            return [];
+        }
+
+        return array_filter(
+            array_map('strval', array_filter($fixed, 'is_scalar')),
+            static fn ($v) => $v !== ''
+        );
     }
 
     /**

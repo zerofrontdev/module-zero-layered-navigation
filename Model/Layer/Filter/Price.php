@@ -37,7 +37,7 @@ class Price extends \Magento\CatalogSearch\Model\Layer\Filter\Price
         }
         $this->getLayer()->getProductCollection()->addFieldToFilter('price', ['from' => $from, 'to' => $to]);
         $this->getLayer()->getState()->addFilter(
-            $this->_createItem($this->_renderRangeLabel($from ?? 0, $to), ($from ?? '') . '-' . ($to ?? ''))
+            $this->_createItem($this->_renderRangeLabel($from ?? 0, $to ?? ''), ($from ?? '') . '-' . ($to ?? ''))
         );
 
         return $this;

@@ -13,12 +13,20 @@ templates render them):
   page's own is: `Model\FacetCounts`). So "Blue (12)" while Red is chosen
   says what adding Blue brings.
 - **Price by the customer's own numbers**: a two-handle slider over the
-  page's prices (the cheapest and dearest with the other filters applied,
-  from the price index: `Model\PriceBounds`) and From/To fields
-  (`price_from`, `price_to`, in the store view's currency, converted to the
-  base one). Letting a handle go applies it. The slider is
+  page's prices (the cheapest and dearest of the page's own products, the
+  search and every other filter applied, from the price index's statistics
+  in the store view's currency, converted once: `Model\PriceBounds`; cached
+  by store, category, `cat`, search, filters, fixed filters, customer group
+  and currency, and a page with nothing to slide over is not cached) and
+  From/To fields (`price_from`, `price_to`, in the store view's currency,
+  converted to the base one). Letting a handle go applies it. The slider is
   `view/frontend/web/js/price-slider.js`; without it the fields work alone.
-  Magento's own `price=100-500` links still work.
+  Magento's own `price=100-500` links still work. "From" alone reads
+  "$10.00 and above"; "To" alone "$0.00 - $X". Odd input (`1e999`, a
+  negative number, `price_from[]=1`, `color[a][b]=1`) is ignored, not a 500.
+- **Fixed filters** (`zero_fixed`, a brand page's brand) are server-only:
+  read from the request's user params, set by the page's controller with
+  `setParam`; `?zero_fixed[...]` in the address changes nothing.
 - **Long lists**: the first 8 options, the rest under "Show more (N)" (open
   when one of them is chosen).
 - Swatch filters refresh the page part with HTMX like the others.
@@ -44,9 +52,15 @@ Part of [`zerofront/zero`](https://zerofront.dev), which installs the Zero theme
 
 ## Tests
 
-`Test/Unit/Model/{Values,Price}Test.php`; `dev/tests/zero-e2e/tests/
+`Test/Unit/Model/{Values,Price,PriceBounds,FacetCounts}Test.php`,
+`Test/Unit/Model/Layer/Filter/PriceTest.php` (the one-sided chip label) and
+`Test/Unit/ViewModel/FiltersTest.php`; `dev/tests/zero-e2e/tests/
 layered-navigation.spec.ts` (two colors, two options of a checkbox filter,
-the price range).
+the price range) and `layered-navigation-bounds.spec.ts` (each category's
+own bounds, one currency conversion, `zero_fixed` from the address ignored
+by the listing and by a chosen filter's option counts, "and above" chip, odd input gives 200; local store only).
+
+What changed in each release: [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

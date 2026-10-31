@@ -69,8 +69,10 @@ class Filters implements ArgumentInterface
             }
         }
 
-        $from = (string) $this->request->getParam('price_from', '');
-        $to = (string) $this->request->getParam('price_to', '');
+        $from = $this->request->getParam('price_from', '');
+        $from = is_scalar($from) ? (string) $from : '';
+        $to = $this->request->getParam('price_to', '');
+        $to = is_scalar($to) ? (string) $to : '';
         $bounds = $this->priceBounds->get($this->layerResolver->get());
         [$min, $max] = $bounds ?? [null, null];
 

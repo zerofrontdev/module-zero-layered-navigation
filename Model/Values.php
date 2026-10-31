@@ -18,7 +18,11 @@ class Values
      */
     public static function parse(mixed $param): array
     {
-        $values = is_array($param) ? $param : explode(',', (string) $param);
+        if (is_array($param)) {
+            $values = array_filter($param, 'is_scalar');
+        } else {
+            $values = is_scalar($param) ? explode(',', (string) $param) : [];
+        }
         $values = array_filter(array_map(static fn ($v) => trim((string) $v), $values), static fn ($v) => $v !== '');
 
         return array_values(array_unique($values));

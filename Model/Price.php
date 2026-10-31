@@ -25,7 +25,7 @@ class Price
         $to = self::number($request->getParam('price_to'));
         if ($from === null && $to === null) {
             $param = $request->getParam('price');
-            if (!is_string($param) || !preg_match('/^(\d*\.?\d*)-(\d*\.?\d*)$/', explode(',', $param)[0], $m)) {
+            if (!is_string($param) || !preg_match('/^(\d*\.?\d*)-(\d*\.?\d*)\z/', explode(',', $param)[0], $m)) {
                 return null;
             }
             $from = self::number($m[1]);
@@ -41,10 +41,20 @@ class Price
         return [$from, $to];
     }
 
+    /**
+     * A non-negative finite number, or null (an array, "abc", "1e999", "-5").
+     */
     private static function number(mixed $value): ?float
     {
+        if (!is_scalar($value)) {
+            return null;
+        }
         $value = str_replace([',', ' '], ['.', ''], trim((string) $value));
+        if (!is_numeric($value)) {
+            return null;
+        }
+        $number = (float) $value;
 
-        return is_numeric($value) && (float) $value >= 0 ? (float) $value : null;
+        return is_finite($number) && $number >= 0 ? $number : null;
     }
 }
